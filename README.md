@@ -16,16 +16,19 @@ Develop a robust RAG-based financial assistant that combines advanced vector sea
    - Utilizes 10-K filings, stored in a structured CSV format, with sections like "Risk Factors," "Financial Statements," and "Management Analysis."
    - Supports additional financial filings, such as 10-Q (quarterly reports) and 8-K (current events).
 
-2. **FAISS for Document Retrieval**:
-   - **FAISS (Facebook AI Similarity Search)** provides efficient, similarity-based search over document embeddings.
-   - Stores document embeddings in an index for fast retrieval of relevant sections.
+2. **FAISS and ChromaDB for Document Retrieval**:
+   - **FAISS (Facebook AI Similarity Search)** provides efficient, similarity-based search over document embeddings and supports retrieval for models like GPT-4o and Meta-LLaMA 3-8B Instruct.
+   - **ChromaDB** is used for advanced indexing and retrieval for LLaMA 3.2 and Mistral, ensuring accurate and scalable document processing.
+   - Both systems store embeddings in indices for fast and context-aware retrieval of relevant sections.
 
 3. **Pre-trained Financial Embeddings**:
    - Uses **FinLang/finance-embeddings-investopedia**, a specialized model for embedding financial text.
    - Embeds both user queries and document sections into a shared semantic space for accurate matching.
 
 4. **Advanced Generative Models**:
-   - **LLaMA 3**: Fine-tuned using **Low-Rank Adaptation (LoRA)** for domain-specific QA tasks.
+   - **LLaMA 3.2**: A scalable model optimized for multi-turn dialogue and large-scale financial datasets, ensuring detailed contextual understanding.
+   - **Mistral**: Efficiently designed for text generation and structured QA tasks, particularly on compact hardware setups.
+   - **Meta-LLaMA 3-8B Instruct**: Fine-tuned for instruction-following tasks, enabling precise and context-sensitive responses.
    - **OpenAI GPT**: Combines retrieved context with user queries to generate fact-based, natural language responses.
 
 5. **Interactive Querying**:
@@ -36,43 +39,38 @@ Develop a robust RAG-based financial assistant that combines advanced vector sea
 
 ## Workflow
 
-### Step 1: Data Preparation and Embedding
-1. **Data**:
-   - Load structured financial documents (e.g., 10-K filings) in CSV format.
-   - Combine headers and content into chunks for embedding.
+#### **Step 1: Data Preparation and Embedding**
 
-2. **Embeddings**:
-   - Generate document embeddings using **sentence-transformers/all-mpnet-base-v2** or **FinLang/finance-embeddings-investopedia**.
-   - Store embeddings in a **FAISS index**.
-
-3. **Indexing**:
-   - Save a mapping of document sections to index positions for reverse lookup.
+- **HTML Processing**: Extracted text using BeautifulSoup, cleaned and normalized, with sections like "Risk Factors" mapped to standardized fields. Output was structured as `structured_10k.csv`.  
+- **PDF Processing**: Used PyPDFLoader and RecursiveCharacterTextSplitter to process files into 800-character chunks with 80-character overlap, assigning unique identifiers for traceability.  
+- **Embedding Generation**: Text embeddings were generated using `all-mpnet-base-v2` for general-purpose tasks, `FinLang/finance-embeddings-investopedia` for financial contexts, and `BAAI/bge-large-en-v1.5` for balanced precision and generalizability. Indexed using **FAISS** for fast retrieval.
 
 ---
 
-### Step 2: Query Processing and Retrieval
-1. **Query Encoding**:
-   - Convert user queries into embeddings using the same model as document embeddings.
+#### **Step 2: Query Processing and Retrieval**
 
-2. **Search**:
-   - Perform a similarity search on the FAISS index to find the most relevant document chunks.
-
-3. **Aggregation**:
-   - Combine retrieved sections into a context string for the generative model.
+- **Query Encoding**: User queries were embedded using the same models as document embeddings.  
+- **Search and Retrieval**: **FAISS** retrieved relevant document chunks, while **ChromaDB** supported retrieval for **LLaMA 3.2** and **Mistral**.  
+- **Context Aggregation**: Retrieved sections were combined into a coherent context for model input.
 
 ---
 
-### Step 3: Response Generation
-1. **Prompt Creation**:
-   - Combine the user query with the retrieved context to form a structured prompt.
+#### **Step 3: Response Generation**
 
-2. **Language Model**:
-   - Pass the prompt to either:
-     - **LLaMA 3**: Fine-tuned for financial QA tasks.
-     - **OpenAI GPT-4o**: For generating detailed and conversational responses.
+- **Prompt Creation**: Combined user queries with retrieved context for structured input.  
+- **Language Models**:  
+  - **LLaMA 3.2** and **Mistral**: Fine-tuned for financial QA tasks.  
+  - **GPT-4o**: Generated detailed, conversational responses.  
+- **Output**: Delivered user-friendly responses via a **Streamlit interface**.
 
-3. **Output**:
-   - Return a clear, fact-based response to the user query.
+---
+
+#### **Models Used**
+
+- **GPT-4o**: General-purpose model for precise financial insights.  
+- **Mistral**: Optimized for QA tasks on compact setups.  
+- **LLaMA 3.2**: Handles multi-turn dialogue and large-scale datasets.  
+- **Meta-LLaMA 3-8B Instruct**: Fine-tuned for instruction-following with domain-specific datasets.
 
 ---
 
