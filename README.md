@@ -87,8 +87,27 @@ Develop a robust RAG-based financial assistant that combines advanced vector sea
 *"The risk factors include market volatility, regulatory changes, and supply chain disruptions, as mentioned in the report."*
 
 ---
+## **Folder Structure**
+```plaintext
+RAG-Based-Financial-Reports-Assistant/
+├── Evaluation/                     # Contains evaluation scripts and results for QA performance
+│   ├── Evaluation.ipynb            # Notebook for evaluating retrieval and QA pair quality
+│   ├── scored_qa.xlsx              # Excel file storing QA evaluation scores
+├── FAISS/                          # Directory for FAISS-related files
+│   ├── finance_10k_index.faiss     # FAISS index storing document embeddings for retrieval
+├── data/                           # Directory for raw and processed financial data
+├── RAG_Pipeline_with_GPT.ipynb     # Notebook implementing RAG pipeline using GPT for QA
+├── RAG_pipeline_with_Llama.ipynb   # Notebook implementing RAG pipeline using LLaMA models
+├── adv_rag_app.py                  # Streamlit app for interactive querying and response generation
+├── advanced_rag_techniques.py      # Script for advanced RAG techniques like re-ranking and query expansion
+├── get_embedding_function.py       # Script for generating text embeddings using various models
+├── populate_database.py            # Script for populating ChromaDB with document embeddings
+├── preprocess.py                   # Script for preprocessing HTML documents and normalizing text
+├── section_mapping.json            # JSON file mapping document sections to indices for lookup
+├── structured_10k.csv              # Structured dataset of 10-K filings for embeddings and retrieval
+├── README.md                       # Project documentation with overview, setup, and usage instructions
 
-
+```
 
 ## Key Components
 
