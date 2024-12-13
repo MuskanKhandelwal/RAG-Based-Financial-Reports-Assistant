@@ -102,6 +102,10 @@ Develop a robust RAG-based financial assistant that combines advanced vector sea
 
 ### **OpenAI GPT-4o**
 - Generates high-quality, natural language responses using retrieved context.
+### **Mistral**
+- Efficient model specialized for text generation and structured QA tasks, particularly on compact hardware setups.
+### **LLaMA 3.2**
+- A scalable language model optimized for multi-turn dialogue and large-scale financial datasets, ensuring detailed contextual understanding.
 
 ### **Embedding Models**
 - Encodes financial text and user queries into a shared semantic space.
