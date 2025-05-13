@@ -4,6 +4,7 @@ This repository demonstrates a **Retrieval-Augmented Generation (RAG)** pipeline
 
 ---
 
+
 ## Objective
 
 Develop a robust RAG-based financial assistant that combines advanced vector search with fine-tuned generative models. The system enables users to interactively query structured financial documents, offering precise insights in a conversational format.
