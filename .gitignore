@@ -4,7 +4,7 @@ __pycache__/
 .venv/
 venv/
 env/
-
+.streamlit/
 # Vector stores and ingest artifacts (rebuilt by populate_database.py)
 chroma/
 temp_chroma/

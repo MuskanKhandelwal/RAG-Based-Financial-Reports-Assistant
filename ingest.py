@@ -1,16 +1,20 @@
 import argparse
 import os
+import re
 import shutil
-from langchain.document_loaders.pdf import PyPDFDirectoryLoader
+from langchain_community.document_loaders import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain.schema.document import Document
-from get_embedding_function import get_embedding_function
-from document_metadata import metadata_for_documents
-from langchain.vectorstores.chroma import Chroma
+from langchain_core.documents import Document
+from embeddings import get_embedding_function
+from metadata import metadata_for_documents
+from langchain_chroma import Chroma
 
 
 CHROMA_PATH = "chroma"
 DATA_PATH = "data"
+
+CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", 1500))
+CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", 200))
 
 
 def main():
@@ -34,10 +38,27 @@ def load_documents():
     return document_loader.load()
 
 
+def normalize_whitespace(documents: list[Document]):
+    """Collapse the tabs and runs of spaces PyPDF emits between words.
+
+    Extracted pages arrive as "we\tproduced\t1,845,985\tvehicles", which is hard
+    for the LLM to read. Newlines are preserved so the splitter can still break
+    on paragraph boundaries.
+    """
+    for doc in documents:
+        text = doc.page_content.replace("\t", " ")
+        text = re.sub(r"[  ]+", " ", text)
+        text = re.sub(r" *\n *", "\n", text)
+        text = re.sub(r"\n{3,}", "\n\n", text)
+        doc.page_content = text.strip()
+    return documents
+
+
 def split_documents(documents: list[Document]):
+    documents = normalize_whitespace(documents)
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=800,
-        chunk_overlap=80,
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
         length_function=len,
         is_separator_regex=False,
     )
@@ -87,7 +108,6 @@ def add_to_chroma(chunks: list[Document]):
         print(f"👉 Adding new documents: {len(new_chunks)}")
         new_chunk_ids = [chunk.metadata["id"] for chunk in new_chunks]
         db.add_documents(new_chunks, ids=new_chunk_ids)
-        db.persist()
     else:
         print("✅ No new documents to add")
 
