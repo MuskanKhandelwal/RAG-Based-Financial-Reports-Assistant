@@ -4,7 +4,7 @@ import re
 import json
 from bs4 import BeautifulSoup
 import pandas as pd
-import PyPDF2
+from pypdf import PdfReader
 
 
 def process_file(uploaded_file, model_choice):
@@ -13,7 +13,7 @@ def process_file(uploaded_file, model_choice):
     
     if file_extension == "pdf":
         # Extract text from PDF
-        pdf_reader = PyPDF2.PdfReader(uploaded_file)
+        pdf_reader = PdfReader(uploaded_file)
         text = ""
         for page in pdf_reader.pages:
             text += page.extract_text()

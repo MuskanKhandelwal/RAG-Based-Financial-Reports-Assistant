@@ -1,13 +1,13 @@
 import os
 import shutil
 import streamlit as st
-from langchain.document_loaders import PyPDFLoader
-from populate_database import split_documents, add_to_chroma
-from get_embedding_function import get_embedding_function
-from advanced_rag_techniques import AdvancedRAGRetriever  # New import
-from langchain_community.vectorstores import Chroma
-from langchain.prompts import ChatPromptTemplate
-from langchain_community.llms.ollama import Ollama
+from langchain_community.document_loaders import PyPDFLoader
+from ingest import split_documents, add_to_chroma
+from embeddings import get_embedding_function
+from retriever import AdvancedRAGRetriever, build_filter, result_key
+from langchain_chroma import Chroma
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_ollama import OllamaLLM
 from typing import Literal
 
 CHROMA_PATH = "chroma"
@@ -16,13 +16,25 @@ UPLOAD_PATH = "uploaded_files"
 os.makedirs(UPLOAD_PATH, exist_ok=True)
 
 PROMPT_TEMPLATE = """
-Answer the question based only on the following context:
+You are a financial analyst answering questions about SEC filings and earnings
+releases. Use only the context below.
 
+Rules:
+- Quote figures exactly as they appear in the context. Do not round or reformat.
+- If a sentence states the answer directly, use it. Never derive a number from a
+  different line item, and never treat a dollar amount as a unit count.
+- Watch the units. Financial statement tables are usually "in millions"; counts
+  of vehicles, users, stores or members are not dollar figures.
+- If the context does not contain the answer, reply exactly:
+  "That is not stated in the retrieved context." Do not infer or estimate.
+
+Context:
 {context}
 
 ---
 
-Answer the question precisely based on the above context: {question}
+Question: {question}
+Answer:
 """
 
 def save_uploaded_file(uploaded_file):
@@ -48,14 +60,45 @@ def process_pdfs():
 
         db = Chroma(persist_directory=TEMP_CHROMA_PATH, embedding_function=get_embedding_function())
         db.add_documents(chunks)
-        db.persist()
 
         return True, f"Successfully added {len(chunks)} document chunks to the temporary database."
     except Exception as e:
         return False, f"An error occurred: {e}"
     
 def get_llm_model(model_name: Literal["mistral", "llama3.2"]):
-    return Ollama(model=model_name)
+    return OllamaLLM(model=model_name)
+
+
+ALL = "All"
+
+
+def filing_filter_controls(rag_retriever):
+    """Render company / year / form filters and return a Chroma where-clause."""
+    tickers, years, forms = rag_retriever.available_facets()
+
+    st.sidebar.markdown("### Filter filings")
+    if not tickers and not years:
+        st.sidebar.caption("No filing metadata found. Re-run: python ingest.py --reset")
+        return None
+
+    ticker = st.sidebar.selectbox("Company", [ALL] + tickers)
+    year = st.sidebar.selectbox("Fiscal year", [ALL] + [str(y) for y in years])
+    form = st.sidebar.selectbox("Document type", [ALL] + forms)
+
+    return build_filter(
+        ticker=None if ticker == ALL else ticker,
+        fiscal_year=None if year == ALL else int(year),
+        form_type=None if form == ALL else form,
+    )
+
+
+def format_source(doc):
+    meta = doc.metadata
+    label = os.path.basename(meta.get("source", "Unknown"))
+    ticker, year = meta.get("ticker"), meta.get("fiscal_year")
+    if ticker and year and year != -1:
+        label = f"{ticker} FY{year} ({meta.get('form_type', '')}) p.{meta.get('page', '?')}"
+    return label
 
 
 def advanced_query_rag(query_text: str, db_path: str):
@@ -74,32 +117,37 @@ def advanced_query_rag(query_text: str, db_path: str):
     embedding_function = get_embedding_function()
     rag_retriever = AdvancedRAGRetriever(db_path, embedding_function)
 
+    where = filing_filter_controls(rag_retriever)
+
     # Use session state directly without callback
     retrieval_method = st.sidebar.radio(
         "Select Retrieval Method",
-        ["Semantic Search", "Hybrid Search", "Query Expansion", 
+        ["Semantic Search", "Hybrid Search", "Query Expansion",
          "Contextual Compression", "Multi-Query"],
         key="retrieval_method"  # This automatically updates session state
     )
 
     # Retrieve documents based on selected method
     if retrieval_method == "Semantic Search":
-        results = rag_retriever.db.similarity_search_with_score(query_text, k=5)
+        results = rag_retriever.semantic_search(query_text, k=5, where=where)
     elif retrieval_method == "Hybrid Search":
-        results = rag_retriever.hybrid_search(query_text)
+        results = rag_retriever.hybrid_search(query_text, where=where)
     elif retrieval_method == "Query Expansion":
         expanded_queries = rag_retriever.query_expansion(query_text)
         results = []
         for query in expanded_queries:
-            results.extend(rag_retriever.db.similarity_search_with_score(query, k=2))
+            results.extend(rag_retriever.semantic_search(query, k=2, where=where))
         # Remove duplicates while preserving order
-        results = list({result[0].metadata['id']: result for result in results}.values())
+        results = list({result_key(result[0]): result for result in results}.values())
     elif retrieval_method == "Contextual Compression":
-        compressed_docs = rag_retriever.contextual_compression(query_text)
+        compressed_docs = rag_retriever.contextual_compression(query_text, where=where)
         results = [(doc, 1.0) for doc in compressed_docs]
     elif retrieval_method == "Multi-Query":
-        multi_query_docs = rag_retriever.multi_query_retrieval(query_text)
+        multi_query_docs = rag_retriever.multi_query_retrieval(query_text, where=where)
         results = [(doc, 1.0) for doc in multi_query_docs]
+
+    if not results:
+        return "No chunks matched the selected filters.", []
 
     # Optional Re-ranking
     if st.sidebar.checkbox("Enable Re-ranking"):
@@ -122,8 +170,8 @@ def advanced_query_rag(query_text: str, db_path: str):
     response_text = model.invoke(prompt)
 
     # Extract sources
-    sources = [doc.metadata.get("source", "Unknown") for doc, _score in results]
-    
+    sources = list(dict.fromkeys(format_source(doc) for doc, _score in results))
+
     return response_text, sources
 
 # Streamlit App modifications
