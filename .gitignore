@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+
+# Vector stores and ingest artifacts (rebuilt by populate_database.py)
+chroma/
+temp_chroma/
+
+# Runtime uploads
+uploaded_files/
+
+# Environment / secrets
+.env
+.env.*
+
+# Notebook state
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
