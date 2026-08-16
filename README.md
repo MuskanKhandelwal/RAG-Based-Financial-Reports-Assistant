@@ -4,12 +4,8 @@
 
 **Query 10-K filings and earnings releases in plain English, filtered by company and fiscal year, running entirely on your own machine**
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB.svg)](https://www.python.org/)
-[![LangChain](https://img.shields.io/badge/LangChain-0.3.30-1C3C3C.svg)](https://www.langchain.com/)
-[![Chroma](https://img.shields.io/badge/Chroma-1.5.9-FF6B6B.svg)](https://www.trychroma.com/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-1.61.1-FF4B4B.svg)](https://streamlit.io/)
-[![Ollama](https://img.shields.io/badge/Ollama-mistral%20%7C%20llama3.2-000000.svg)](https://ollama.com/)
-[![BGE](https://img.shields.io/badge/Embeddings-bge--small--en--v1.5-FFD21E.svg)](https://huggingface.co/BAAI/bge-small-en-v1.5)
+
+## Objective
 
 </div>
 
@@ -20,24 +16,18 @@ the filings and answers from them. Nothing leaves your laptop, and no API keys a
 
 ### It knows which company you are asking about
 
-- **Every chunk is tagged** with company, ticker, fiscal year, document type and period end, read
-  from the cover page of the filing rather than the file name.
-- **Filter before you search.** Pick a company and a year in the sidebar and the search only looks at
-  those documents. Without this, a question about revenue pulls Apple, Tesla and Meta passages into
-  the same answer with no way to tell them apart.
-- **File names are not trusted.** Two files in this repo are named `10-Q4-2024-As-Filed.pdf` and
-  `_10-K-Q4-2023-As-Filed.pdf` and both are Apple filings. Nothing in either name says so, so the
-  cover page is parsed instead.
-- **An impossible filter says so.** Ask for a year a company has no filing for and it tells you
-  nothing matched, instead of quietly answering from a different document.
+2. **FAISS and ChromaDB for Document Retrieval**:
+   - **FAISS (Facebook AI Similarity Search)** provides efficient, similarity-based search over document embeddings and supports retrieval for models like GPT-4o and Meta-LLaMA 3-8B Instruct.
+   - **ChromaDB** is used for advanced indexing and retrieval for LLaMA 3.2 and Mistral, ensuring accurate and scalable document processing.
+   - Both systems store embeddings in indices for fast and context-aware retrieval of relevant sections.
 
 ### It answers with the actual numbers
 
-- **Figures are quoted, not inferred.** The prompt forbids deriving a number from a nearby line item
-  or treating a dollar amount as a unit count.
-- **It declines when it does not know.** If the retrieved passages do not answer the question, it
-  replies that the information is not in the context rather than estimating.
-- **Sources are readable.** Answers cite `TSLA FY2023 (10-K) p.33`, not a file path.
+4. **Advanced Generative Models**:
+   - **LLaMA 3.2**: A scalable model optimized for multi-turn dialogue and large-scale financial datasets, ensuring detailed contextual understanding.
+   - **Mistral**: Efficiently designed for text generation and structured QA tasks, particularly on compact hardware setups.
+   - **Meta-LLaMA 3-8B Instruct**: Fine-tuned for instruction-following tasks, enabling precise and context-sensitive responses.
+   - **OpenAI GPT**: Combines retrieved context with user queries to generate fact-based, natural language responses.
 
 ### Several retrieval strategies to compare
 
@@ -48,42 +38,38 @@ the filings and answers from them. Nothing leaves your laptop, and no API keys a
 
 ### It runs locally
 
-- **Ollama** for generation, **bge-small** for embeddings, **Chroma** on disk for the index.
-- **No API keys, no usage cost, no documents sent anywhere.**
+#### **Step 1: Data Preparation and Embedding**
 
-## What is in the corpus
-
-| Document | Company | Type | Fiscal year |
-| --- | --- | --- | --- |
-| `10-Q4-2024-As-Filed.pdf` | Apple | 10-K | 2024 |
-| `_10-K-Q4-2023-As-Filed.pdf` | Apple | 10-K | 2023 |
-| `tsla-20231231-gen.pdf` | Tesla | 10-K | 2023 |
-| `cost-annual-report-final-pdf-from-dfin.pdf` | Costco | Annual report | 2023 |
-| `Meta-12-31-2023-Exhibit-99-1-FINAL.pdf` | Meta | Press release | 2023 |
-| `Meta-Reports-First-Quarter-2024-Results-2024.pdf` | Meta | Press release | 2024 |
+- **HTML Processing**: Extracted text using BeautifulSoup, cleaned and normalized, with sections like "Risk Factors" mapped to standardized fields. Output was structured as `structured_10k.csv`.  
+- **PDF Processing**: Used PyPDFLoader and RecursiveCharacterTextSplitter to process files into 800-character chunks with 80-character overlap, assigning unique identifiers for traceability.  
+- **Embedding Generation**: Text embeddings were generated using `all-mpnet-base-v2` for general-purpose tasks, `FinLang/finance-embeddings-investopedia` for financial contexts, and `BAAI/bge-large-en-v1.5` for balanced precision and generalizability. Indexed using **FAISS** for fast retrieval.
 
 Six documents, 427 pages, 1,228 chunks.
 
-## How to use it
+#### **Step 2: Query Processing and Retrieval**
 
-**1. Build the index.** This reads every PDF in `data/`, splits it, and writes the vector store to
-`chroma/`. It takes about 45 seconds.
-
-```bash
-.venv/bin/python ingest.py --reset
-```
+- **Query Encoding**: User queries were embedded using the same models as document embeddings.  
+- **Search and Retrieval**: **FAISS** retrieved relevant document chunks, while **ChromaDB** supported retrieval for **LLaMA 3.2** and **Mistral**.  
+- **Context Aggregation**: Retrieved sections were combined into a coherent context for model input.
 
 **2. Start the app.**
 
-```bash
-.venv/bin/streamlit run app.py
-```
+#### **Step 3: Response Generation**
 
-**3. Pick a company in the sidebar.** Under "Filter filings" choose a company, a fiscal year and a
-document type. Leave any of them on "All" to search everything. The choices come from what is
-actually in the index, so they update if you add filings.
+- **Prompt Creation**: Combined user queries with retrieved context for structured input.  
+- **Language Models**:  
+  - **LLaMA 3.2** and **Mistral**: Fine-tuned for financial QA tasks.  
+  - **GPT-4o**: Generated detailed, conversational responses.  
+- **Output**: Delivered user-friendly responses via a **Streamlit interface**.
 
-**4. Ask a question.** Some that work well:
+---
+
+#### **Models Used**
+
+- **GPT-4o**: General-purpose model for precise financial insights.  
+- **Mistral**: Optimized for QA tasks on compact setups.  
+- **LLaMA 3.2**: Handles multi-turn dialogue and large-scale datasets.  
+- **Meta-LLaMA 3-8B Instruct**: Fine-tuned for instruction-following with domain-specific datasets.
 
 > "How many vehicles were produced and delivered?" (Company: TSLA)
 > "What are the principal risk factors related to supply chain?" (Company: AAPL, Year: 2024)
@@ -102,31 +88,27 @@ vectors are not comparable.
 
 ## Tech stack
 
-| Layer | Built with |
-| --- | --- |
-| PDF loading | `pypdf` via LangChain `PyPDFDirectoryLoader` |
-| Chunking | `RecursiveCharacterTextSplitter`, 1500 characters, 200 overlap |
-| Metadata extraction | Regex over filing cover pages (`metadata.py`) |
-| Embeddings | `BAAI/bge-small-en-v1.5` through sentence-transformers, 384 dimensions |
-| Vector store | Chroma, persisted to `chroma/` |
-| Re-ranking | `cross-encoder/ms-marco-MiniLM-L-12-v2` |
-| Generation | Ollama running `mistral` or `llama3.2` |
-| Interface | Streamlit |
+---
+## **Folder Structure**
+```plaintext
+RAG-Based-Financial-Reports-Assistant/
+├── Evaluation/                     # Contains evaluation scripts and results for QA performance
+│   ├── Evaluation.ipynb            # Notebook for evaluating retrieval and QA pair quality
+│   ├── scored_qa.xlsx              # Excel file storing QA evaluation scores
+├── FAISS/                          # Directory for FAISS-related files
+│   ├── finance_10k_index.faiss     # FAISS index storing document embeddings for retrieval
+├── data/                           # Directory for raw and processed financial data
+├── RAG_Pipeline_with_GPT.ipynb     # Notebook implementing RAG pipeline using GPT for QA
+├── RAG_pipeline_with_Llama.ipynb   # Notebook implementing RAG pipeline using LLaMA models
+├── adv_rag_app.py                  # Streamlit app for interactive querying and response generation
+├── advanced_rag_techniques.py      # Script for advanced RAG techniques like re-ranking and query expansion
+├── get_embedding_function.py       # Script for generating text embeddings using various models
+├── populate_database.py            # Script for populating ChromaDB with document embeddings
+├── preprocess.py                   # Script for preprocessing HTML documents and normalizing text
+├── section_mapping.json            # JSON file mapping document sections to indices for lookup
+├── structured_10k.csv              # Structured dataset of 10-K filings for embeddings and retrieval
+├── README.md                       # Project documentation with overview, setup, and usage instructions
 
-## Setup
-
-You need an **arm64 Python** on Apple Silicon. An x86_64 interpreter running under Rosetta caps
-PyTorch at 2.2.2 and cannot use the GPU, which makes indexing very slow.
-
-```bash
-/opt/homebrew/bin/python3.12 -m venv .venv
-.venv/bin/pip install -r requirements.txt
-```
-
-Check that you got the right one:
-
-```bash
-.venv/bin/python -c "import platform, torch; print(platform.machine(), torch.backends.mps.is_available())"
 ```
 
 You want `arm64 True`.
@@ -137,7 +119,12 @@ Then install Ollama and pull a model:
 ollama pull llama3.2
 ```
 
-Two environment variables let you change the setup without editing code:
+### **OpenAI GPT-4o**
+- Generates high-quality, natural language responses using retrieved context.
+### **Mistral**
+- Efficient model specialized for text generation and structured QA tasks, particularly on compact hardware setups.
+### **LLaMA 3.2**
+- A scalable language model optimized for multi-turn dialogue and large-scale financial datasets, ensuring detailed contextual understanding.
 
 ```bash
 CHUNK_SIZE=800 CHUNK_OVERLAP=80 .venv/bin/python ingest.py --reset
