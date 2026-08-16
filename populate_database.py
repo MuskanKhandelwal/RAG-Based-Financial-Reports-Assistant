@@ -5,6 +5,7 @@ from langchain.document_loaders.pdf import PyPDFDirectoryLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain.schema.document import Document
 from get_embedding_function import get_embedding_function
+from document_metadata import metadata_for_documents
 from langchain.vectorstores.chroma import Chroma
 
 
@@ -40,7 +41,26 @@ def split_documents(documents: list[Document]):
         length_function=len,
         is_separator_regex=False,
     )
-    return text_splitter.split_documents(documents)
+    chunks = text_splitter.split_documents(documents)
+    return add_filing_metadata(chunks, metadata_for_documents(documents))
+
+
+def add_filing_metadata(chunks: list[Document], metadata_by_source: dict):
+    """Stamp company / ticker / form type / fiscal year onto every chunk.
+
+    Without this, chunks from different issuers and years are indistinguishable
+    at query time and a question about one company can be answered from
+    another's filing.
+
+    :param chunks: Chunks produced by the text splitter.
+    :param metadata_by_source: Filing metadata keyed by source path.
+    :return: The same chunks, with filing metadata merged in.
+    """
+    for chunk in chunks:
+        filing_metadata = metadata_by_source.get(chunk.metadata.get("source"))
+        if filing_metadata:
+            chunk.metadata.update(filing_metadata)
+    return chunks
 
 
 def add_to_chroma(chunks: list[Document]):
